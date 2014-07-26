@@ -1,118 +1,123 @@
-# 4. Subcommands
+# 4. Subcommand Flags
 
-In the last chapter we saw the canonical pattern for writing simple
-Cookoo CLIs. To wit, a standard Cookoo CLI does the following:
+In the last chapter we saw how Cookoo's CLI runner can support
+subcommands. We also saw how it parses command line flags. In this
+section, we'll see how to add subcommand-specific flags.
 
-1. Creates a Cookoo instance
-2. Configures a FlagSet of command line flags
-3. Creates a Route
-4. Runs the route with the pattern `cli.New().Help().Run()`.
+## Hello Again
 
-But many modern command line clients use what are called subcommands.
-Here are some examples:
-
-```
-$ git clone
-$ git push
-$ go build
-$ go get
-$ glide install
-$ glide update
-```
-
-Above, we can see three examples of how a program may do more than one
-thing. `git clone`, for example, clones a repository, while `git push`
-pushes the local repository to a remote.
-
-Cookoo provides support for this kind of command/subcommand delegation
-model. In this chapter we will extend our earlier command to have two
-subcommands.
-
-## Two Routes
-
-Take a look at this chapter's `main.go`. You'll notice that we now have
-two routes:
+The only big difference in this version of `main.go` is this vastly
+expanded version of the "hello" route:
 
 ```go
 	reg.Route("hello", "A Hello World route").
+		Does(cli.ShiftArgs, "cmd").
+			Using("args").WithDefault("runner.Args").
+			Using("n").WithDefault(1).
+		Does(cli.ParseArgs, "extras").
+			Using("flagset").WithDefault(helloFlags).
+			Using("args").From("cxt:runner.Args").
 		Does(fmt.Printf, "_").
-		Using("format").WithDefault("Hello %s!\n").
-		Using("0").From("cxt:a")
-
-	reg.Route("goodbye", "A Goodbye World route").
-		Does(fmt.Printf, "_").
-		Using("format").WithDefault("Goodbye %s!\n").
-		Using("0").From("cxt:a")
+			Using("format").WithDefault("%s %s!\n").
+			Using("0").From("cxt:s").
+			Using("1").From("cxt:a")
 ```
 
-The 'hello' route is unchanged from the last chapter. And the new
-'goodbye' route is almost identical to it. It just says Goodbye instead
-of Hello.
+For readability, we've indented to show the structure more clearly.
 
-Now that we have two routes, we want to be able to allow users to call
-whichever of these two they please. Unsurprisingly, Cookoo does this for
-us. All we need to do is make a minor adjustment to tell the Cookoo CLI
-runner to use the *subcommand* mode instead of the normal static runner:
+The "hello" route now does three things in order:
+
+1. Shift the arguments
+2. Parse the subcommand flags
+3. Run the Printf command
+
+Step 1 might seem a little strange, so let's start with that.
+
+## The Args
+
+When we start up a command line client, we get the arguments from
+`os.Args`. Let's say that we run the program like this:
+
+```
+$ go run main.go -a Matt hello -s Hi
+```
+
+This will generate an `os.Args` array that looks like this:
 
 ```go
-	cli.New(reg, router, cxt).Help(Summary, Description, flags).RunSubcommand()
+[]string{ "-a", "Matt" "hello" "-s", "Hi" }
 ```
 
-The only change to this line is the change from `Run("hello")` to
-`RunSubcommand()`. The `RunSubcommand()` method tells the CLI runner to
-figure out which route to run based on the commandline.
+When the program first runs, we scan through the arguments and extract
+the global flags. Everything else gets put into the context as
+"runner.Args".
 
-## Running Subcommands
+So effectively, we're doing something like this:
 
-Let's see what happens when we call the program different ways:
 
-```
-$ go run main.go       # Now prints help text
-$ go run main.go -h    # Now also prints help text
-$ go run main.go help  # Whoa! It's the help text again!
+```go
+cxt.Put("runner.Args", []string{ "hello" , "-s", "Hi" }
 ```
 
-Uh... we got a little zealous about providing good help. But wait! We
-can also call `hello` and `goodbye` now!
+The "-a" and "Matt" have been interpreted already.
+
+When the "hello" command runs, we now want it to parse out its flags.
+But if it sees "hello" as the first value, it will assume that there are
+no flags.
+
+So we have to do this first:
+
+```go
+		Does(cli.ShiftArgs, "cmd").
+			Using("args").WithDefault("runner.Args").
+			Using("n").WithDefault(1).
+```
+
+This says "Shift runner.Args over n=1 places and store the shifted value
+in 'cmd'".
+
+Effectively, that will set "cxt:cmd" to "hello" and "cxt:runner.Args" to
+`[]string{ "-s", "Hi" }`.
+
+And *NOW* we can parse the subcommand arguments:
+
+```
+		Does(cli.ParseArgs, "extras").
+			Using("flagset").WithDefault(helloFlags).
+			Using("args").From("cxt:runner.Args").
+```
+
+This will use `helloFlags` to extract the subcommand-specific flags.
+
+And now when we run `fmt.Printf` we pass it two parameters:
+
+```
+		Does(fmt.Printf, "_").
+			Using("format").WithDefault("%s %s!\n").
+			Using("0").From("cxt:s"). // The -s subcommand flag
+			Using("1").From("cxt:a")  // The -a global flag
+```
+
+## In Action
+
+Put all this together, and our commandline works like this:
 
 ```
 $ go run main.go hello
 Hello World!
-$ go run main.go goodbye
-Goodbye World!
+
+$ go run main.go hello -s Hi
+Hi World!
+
+$ go run main.go -a You hello
+Hello You!
+
+$ go run main.go -a You hello -s Hi
+Hi You!
 ```
 
-And we now have support for the `-a` flag on both `hello` and `goodbye`:
+While this isn't exactly the most user-friendly experience, it should be
+clear how the argument parsing works in Cookoo.
 
-```
-$ go run main.go -a Matt hello
-Hello Matt!
-$ go run main.go -a Matt goodbye
-Goodbye Matt!
-```
-
-And wait, there's more!
-
-```
-go run main.go goodbye -a Matt
-Goodbye World!
-```
-
-Huh? Why did that print `Goodbye World!` instead of `Goodbye Matt!`?
-
-The reason is that Cookoo's CLI runner has a notion of *global* flags
-and *subcommand* flags.
-
-**Global flags** are shared across the entire app.
-
-**Subcommand flags** are parsed only for a given subcommand.
-
-And we can tell them apart based on where they are on the command line:
-
-```
-go run main.go [GLOBAL_FLAGS] subcommand [LOCAL_FLAGS]
-```
-
-In the next chapter we'll see how to specify subcommand flags. Here, we
-just wanted to point out how the location of the flag determines its
-behavior.
+In the next chapter, we'll show a little trick for debugging argument
+parsing.

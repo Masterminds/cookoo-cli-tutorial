@@ -28,10 +28,20 @@ func main() {
 	flags.Bool("h", false, "Show help text")
 	flags.String("a", "World", "A string to place after 'Hello'")
 
+	helloFlags := flag.NewFlagSet("hello", flag.PanicOnError)
+	helloFlags.String("s", "Hello", "Alternate salutation")
+
 	reg.Route("hello", "A Hello World route").
+		Does(cli.ShiftArgs, "cmd").
+			Using("args").WithDefault("runner.Args").
+			Using("n").WithDefault(1).
+		Does(cli.ParseArgs, "extras").
+			Using("flagset").WithDefault(helloFlags).
+			Using("args").From("cxt:runner.Args").
 		Does(fmt.Printf, "_").
-		Using("format").WithDefault("Hello %s!\n").
-		Using("0").From("cxt:a")
+			Using("format").WithDefault("%s %s!\n").
+			Using("0").From("cxt:s").
+			Using("1").From("cxt:a")
 
 	reg.Route("goodbye", "A Goodbye World route").
 		Does(fmt.Printf, "_").
