@@ -13,6 +13,11 @@ const (
 	Description = `This program writes Hello World to standard output.
 
 With the -a flag, the second word can be replaced by an artitary string.
+
+Subcommands:
+
+	hello: Say hello
+	goodbye: Say goodbye
 `
 )
 
@@ -28,5 +33,10 @@ func main() {
 		Using("format").WithDefault("Hello %s!\n").
 		Using("0").From("cxt:a")
 
-	cli.New(reg, router, cxt).Help(Summary, Description, flags).Run("hello")
+	reg.Route("goodbye", "A Goodbye World route").
+		Does(fmt.Printf, "_").
+		Using("format").WithDefault("Goodbye %s!\n").
+		Using("0").From("cxt:a")
+
+	cli.New(reg, router, cxt).Help(Summary, Description, flags).RunSubcommand()
 }
