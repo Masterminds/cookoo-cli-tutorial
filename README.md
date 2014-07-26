@@ -1,152 +1,204 @@
-# 2. Hello World
+# 3. Hello You
 
-In this chapter, we're going to turn `main.go` into a simple `Hello
-World` CLI.
+In this chapter we're going to take a jump in complexity. We're adding
+two things to our program:
 
-In the last chapter, we ended with a program that looked like this:
+- Real help text
+- Command-line flags
+
+Before diving into this chapter, take a quick look at `main.go`. Pay
+special attention to the FlagSet, the revised Route, and the last line
+of the `main()` function.
+
+## Help Text
+
+The Cookoo CLI runner has built-in support for generating application
+help. We've been mostly ignoring the help text, but in this chapter
+we'll see how to use it correctly.
+
+**Note:** While supplying help text is optional, it is *highly*
+recommended.
+
+In this chapter's version of `main.go`, you'll notice two new `const`
+declrations:
 
 ```go
-package main
+const (
+	Summary = "A Hello World program"
+	Description = `This program writes Hello World to standard output.
 
-import (
-	"github.com/Masterminds/cookoo"
-	"github.com/Masterminds/cookoo/cli"
+With the -a flag, the second word can be replaced by an artitary string.
+`
 )
-
-func main() {
-	cli.New(cookoo.Cookoo()).Run("help")
-}
 ```
 
-In this chapter, we're going to expand on the body of the `main`
-function. At any time, you can reference the code in this repository, so
-we're not going to keep repeating the full source. We're just going to
-focus on the changed parts.
+These are the two big pieces of help text for the program. In a moment,
+we will see how they get passed into the `Help()` function. Note,
+though, that `Description` is multi-line. That is normal. `Summary`
+should be short (160 characters or less), which `Description` may be
+several paragraphs long, if necessary.
 
-We are going to need one more package from Cookoo, though.
-`github.com/Masterminds/cookoo/fmt` contains some string formatting
-commands that we will be using.
+## Flags
 
-From there, we're mainly going to split the one line of code into a
-couple lines, and then add a `hello world` route.
-
-Here's the body of `main`:
+Also new in this chapter's `main.go` is an explicit declaration of a set
+of flags:
 
 ```go
-func main() {
-	reg, router, cxt := cookoo.Cookoo()
-
-	reg.Route("hello", "A Hello World route").
-		Does(fmt.Printf, "_").
-		Using("format").WithDefault("Hello World!\n")
-
-	cli.New(reg, router, cxt).Run("hello")
-}
+	flags := flag.NewFlagSet("global", flag.PanicOnError)
+	flags.Bool("h", false, "Show help text")
+	flags.String("a", "World", "A string to place after 'Hello'")
 ```
 
-## Cookoo! Cookoo!
+Cookoo uses Go's built-in `flag` package for supporing commandline
+flags. If you're not sure how commandline flags work, you may want to
+take a look at the Godocs for `flag`.
 
-First, let's understand what `cookoo.Cookoo()` does. (The duplication of
-Cookoo was intentional, and is a reference to a cookoo clock.)
+Simply stated, we declare two flags above:
 
-```go
-reg, router, cxt := cookoo.Cookoo()
-```
+- `-h`: The help flag. Whenever we override the default flags, we need
+  to supply `-h` if we want help support.
+- `-a`: This flag allows us to pass a string from the command line into
+  our program.
 
-The registry, `reg` is where we declare routes. In Cookoo, a route has a
-name and description, and then a *chain of commands*. You can think of
-this as a task (`hello`) and then a series of steps required to complete
-that task.
+Before we head on to the rest of the program, let's take a look at what
+happens when we run our program.
 
-The router is what runs tasks. In Cookoo CLI apps, we usually don't need
-to directly interact with the router. The Cooko CLI runner does that for
-us.
+## In Action
 
-The context is where Cookoo stores data during the running of a route.
-Later in this tutorial we will interact directly with it, but for now we
-just need to basically grok what it's there for.
-
-Architecturally speaking, the context is the base of Cookoo's dependency
-injection system. Database connections, caches, and all kinds of
-services can get stored in the context, as can ephemeral data.
-
-So when we call `cookoo.Cookoo()`, we get all the pieces we need to
-start a Cookoo application.
-
-Next in this code, we build a Cookoo route.
-
-## Hello, the Route!
-
-At the center of all Cookoo apps is the concept of the route. Again, a
-route is a *task* with a number of *steps*. We call this patter the
-*chain of command (CoCo)* pattern.
-
-In our simple app, we have a single route, and it does only one thing:
-It prints "Hello World!" to the standard output.
-
-```go
-	reg.Route("hello", "A Hello World route").
-		Does(fmt.Printf, "_").
-		Using("format").WithDefault("Hello World!\n")
-```
-
-The `Route()` function takes two arguments. The first is the *route name*.
-This plays a strong functional role. We use the route name to refer to
-this route. (Peek ahead to the `Run()` function. See?!)
-
-A route also has a description. The description is targeted to
-*developers*, and should not generally be displayed to end users. Cookoo
-can use these descriptions to automatically document a program.
-
-A route *does* stuff. So each `Route()` is followed by any number of
-`Does()` calls. In our app, the *hello* route `Does(fmt.Printf, "_")`.
-
-A `Does()` call takes to arguments: the Cookoo command to run and a name
-for the output of this command. "_" conventionally means "ignore the output
-of this command. It's not important.")
-
-The `fmt.Printf` command is a Cookoo built-in function that wraps the
-`fmt.Printf` function in Go's core.
-
-Commands take arguments, and we pass the arguments into a command using
-`Using()`:
-
-```go
-		Does(fmt.Printf, "_").
-		Using("format").WithDefault("Hello World!\n")
-```
-
-The `Using` function is designed to pass name/value pairs into the
-function in the `Does` command. So we can read the above as...
-
-*Does fmt.Printf using the param "format" with the default value "Hello
-World". Essentially, this describes `fmt.Printf("Hello World!"\n")`
-(though with lots of hidden extras). In the next chapter we'll see how
-to pass some non-default info into a command.
-
-## Running Our Route
-
-Now we're ready to turn our Cookoo app into a command line tool:
-
-```go
-	cli.New(reg, router, cxt).Run("hello")
-```
-
-As we saw in the last chapter, `cli.New()` creates a new CLI Runner. A
-runner requires all three parts of a Cookoo app -- the registry, the
-router, and the context.
-
-Finally, whenever `main()` is executed, we want our app to run (`Run()`)
-our new "hello" route.
-
-If we execute the above, this is what we should get:
+First, let's call the program with no arguments:
 
 ```
 $ go run main.go
 Hello World!
 ```
 
-(And we still get really lame help with `go run main.go -h`)
+Yup, it's the old Hello World again. Now let's take a look at the help
+text:
 
-That's it! We've got our second CLI. In the next chapter, we'll expand
-this into the "Hello You!" app.
+```
+$ go run main.go -h
+
+SUMMARY
+=======
+
+A Hello World program
+
+USAGE
+=====
+
+This program writes Hello World to standard output.
+
+With the -a flag, the second word can be replaced by an artitary string.
+
+
+FLAGS
+=====
+	-a: A string to place after 'Hello' (Default: 'World')
+	-h: Show help text (Default: 'false')
+```
+
+Whoa! Now we have an entire help page! Notice that the documentation on
+`FLAGS` is completely autogenerated from the `flag.FlagSet`.
+
+Third, let's try out this `-a` flag:
+
+```go
+$ go run main.go -a You
+Hello You!
+```
+
+Passing in `-a You` altered the output from `Hello World!` to `Hello
+You!`.
+
+Feel free to try a few experiments before proceeding to the next
+section.
+
+## Our Revised Route
+
+In the last chapter we looked at the simple "hello" route. In this
+chapter we've made a minor modification:
+
+```go
+	reg.Route("hello", "A Hello World route").
+		Does(fmt.Printf, "_").
+		Using("format").WithDefault("Hello %s!\n").
+		Using("0").From("cxt:a")
+```
+
+In this example, `Does()` is now getting two arguments:
+
+1. "format" - The formatting string passed into Printf
+2. "0" - The first (zero-eth) argument passed into the Printf format
+   string
+
+Essentially, we're building something like `fmt.Printf(format, zero)`.
+
+But there's something else going on here. While "format" is still
+getting it's default string ("Hello %s!\n"), the `Using("0")` is getting
+its data `From("cxt:a")`. What does that mean?
+
+Simply stated, it means that it looks into the Cookoo context for a
+value named "a". If it finds that value, it passes it on. This is sort
+of equivalent to:
+
+```
+fmt.Printf(format, cxt.Get("a", "").(string))
+```
+
+Here's where Cookoo starts to get powerful. We can build into the Route
+configuration some rules about how to execute a program. The underlying
+commands don't have to know anything about our flow logic. And Cookoo
+handles the role of mapping state (context) to command execution.
+
+Enough grandiose talk... let's answer a practical question: Where does
+"a" come from?
+
+The answer: It comes from the `flag.FlagSet` we defined.
+
+## Running the CLI with a FlagSet and Help Text
+
+Along with changing the route, we also modified the last line of
+`main()`:
+
+```go
+	cli.New(reg, router, cxt).Help(Summary, Description, flags).Run("hello")
+```
+
+We've added one function to our little chain here: `Help(Summary,
+Description, flags)`.
+
+This function passes three things to the CLI runner:
+
+- The Summary text
+- The Description text
+- The flag.FlagSet we created
+
+All three of these are used to generate help text, and the FlagSet is
+also used to process commandline flags.
+
+When `Run()` is called, it will use the `FlagSet` to parse the
+commandline flags. And it places the values of the flags into the
+context.
+
+For that reason, our `-a` flag is now available in the context as `a`.
+And that's how `Using("0").From("cxt:a")` fetched the value of `-a` from
+the command line.
+
+So we added a flag like this:
+
+```go
+	flags.String("a", "World", "A string to place after 'Hello'")
+```
+
+And Cookoo interpreted this as "If -a is supplied, use the value given,
+otherwise set the value of -a to 'World'".
+
+When `Run("hello")` is called, the arguments are parsed, and "a" is
+inserted into the context with either the user-supplied value or (if no
+value is passed on the command line) the value "World".
+
+## Good Practices
+
+In this chapter we've seen how to add command line flags and help text.
+It is considered standard practice to use `Help()` in *every program* to
+create help text and (at minumum) set a `-h` flag.
