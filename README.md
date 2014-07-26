@@ -202,3 +202,6 @@ value is passed on the command line) the value "World".
 In this chapter we've seen how to add command line flags and help text.
 It is considered standard practice to use `Help()` in *every program* to
 create help text and (at minumum) set a `-h` flag.
+
+In the next chapter we'll see how to write CLIs with subcommand support
+(like `git` and `go` have).
