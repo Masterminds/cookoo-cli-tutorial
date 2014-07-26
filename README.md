@@ -1,44 +1,9 @@
-# 1. The Simplest CLI
+# 2. Hello World
 
-Let's dive right in! In this chapter, let's create the simplest Cookoo CLI we
-can.
+In this chapter, we're going to turn `main.go` into a simple `Hello
+World` CLI.
 
-## What Is Cookoo?
-
-Cookoo is a development framework. Developers tend to refer to it as a
-*middleware platform* because it still leaves you (the developer) with
-the flexibility to structure applications the way you want, but it
-handles the top-level structure for you.
-
-Cookoo is not just designed to be an easy starting point, but a
-structure that encourages developers to structure applications for
-future development. In other words, it's a forward-thinking framework.
-
-Cookoo values:
-
-- Ease of use
-- Separation of concerns
-- Dependency injection
-- Component re-use
-- Extensibility and flexibility at the topmost levels
-
-When it comes to Cookoo CLIs, these values manifiest in the way that
-Cookoo separates a CLI into obvious chunks. We'll get into that in the
-coming chapters, but let's start with the simplest program we can make.
-
-## Setup
-
-If you are a [Glide](https://github.com/Masterminds/glide) user, you can
-just run `glide install` in this directory. Then `glide in` to set your
-`$GOPATH`.
-
-If you're not, you may want to `go get github.com/Masterminds/cookoo`.
-Make sure that your `$GOPATH` is correctly configured.
-
-## 10 Lines to Happiness!
-
-Without further ado, here's our first app. You can view it in all its
-glory (???) in `main.go`.
+In the last chapter, we ended with a program that looked like this:
 
 ```go
 package main
@@ -53,67 +18,135 @@ func main() {
 }
 ```
 
-That's it! The above is now a stimulatingly simple and functional
-commandline app.
+In this chapter, we're going to expand on the body of the `main`
+function. At any time, you can reference the code in this repository, so
+we're not going to keep repeating the full source. We're just going to
+focus on the changed parts.
 
-What does it do? I'm glad you asked.
+We are going to need one more package from Cookoo, though.
+`github.com/Masterminds/cookoo/fmt` contains some string formatting
+commands that we will be using.
 
-It does.... nothing.
+From there, we're mainly going to split the one line of code into a
+couple lines, and then add a `hello world` route.
 
-Well, that's not completely true. You can run it like this:
+Here's the body of `main`:
 
+```go
+func main() {
+	reg, router, cxt := cookoo.Cookoo()
+
+	reg.Route("hello", "A Hello World route").
+		Does(fmt.Printf, "_").
+		Using("format").WithDefault("Hello World!\n")
+
+	cli.New(reg, router, cxt).Run("hello")
+}
 ```
-$ go run main.go -h
+
+## Cookoo! Cookoo!
+
+First, let's understand what `cookoo.Cookoo()` does. (The duplication of
+Cookoo was intentional, and is a reference to a cookoo clock.)
+
+```go
+reg, router, cxt := cookoo.Cookoo()
 ```
 
-And it will dutifully print some very boilerplate help text.
+The registry, `reg` is where we declare routes. In Cookoo, a route has a
+name and description, and then a *chain of commands*. You can think of
+this as a task (`hello`) and then a series of steps required to complete
+that task.
 
-You can also run it like this:
+The router is what runs tasks. In Cookoo CLI apps, we usually don't need
+to directly interact with the router. The Cooko CLI runner does that for
+us.
+
+The context is where Cookoo stores data during the running of a route.
+Later in this tutorial we will interact directly with it, but for now we
+just need to basically grok what it's there for.
+
+Architecturally speaking, the context is the base of Cookoo's dependency
+injection system. Database connections, caches, and all kinds of
+services can get stored in the context, as can ephemeral data.
+
+So when we call `cookoo.Cookoo()`, we get all the pieces we need to
+start a Cookoo application.
+
+Next in this code, we build a Cookoo route.
+
+## Hello, the Route!
+
+At the center of all Cookoo apps is the concept of the route. Again, a
+route is a *task* with a number of *steps*. We call this patter the
+*chain of command (CoCo)* pattern.
+
+In our simple app, we have a single route, and it does only one thing:
+It prints "Hello World!" to the standard output.
+
+```go
+	reg.Route("hello", "A Hello World route").
+		Does(fmt.Printf, "_").
+		Using("format").WithDefault("Hello World!\n")
+```
+
+The `Route()` function takes two arguments. The first is the *route name*.
+This plays a strong functional role. We use the route name to refer to
+this route. (Peek ahead to the `Run()` function. See?!)
+
+A route also has a description. The description is targeted to
+*developers*, and should not generally be displayed to end users. Cookoo
+can use these descriptions to automatically document a program.
+
+A route *does* stuff. So each `Route()` is followed by any number of
+`Does()` calls. In our app, the *hello* route `Does(fmt.Printf, "_")`.
+
+A `Does()` call takes to arguments: the Cookoo command to run and a name
+for the output of this command. "_" conventionally means "ignore the output
+of this command. It's not important.")
+
+The `fmt.Printf` command is a Cookoo built-in function that wraps the
+`fmt.Printf` function in Go's core.
+
+Commands take arguments, and we pass the arguments into a command using
+`Using()`:
+
+```go
+		Does(fmt.Printf, "_").
+		Using("format").WithDefault("Hello World!\n")
+```
+
+The `Using` function is designed to pass name/value pairs into the
+function in the `Does` command. So we can read the above as...
+
+*Does fmt.Printf using the param "format" with the default value "Hello
+World". Essentially, this describes `fmt.Printf("Hello World!"\n")`
+(though with lots of hidden extras). In the next chapter we'll see how
+to pass some non-default info into a command.
+
+## Running Our Route
+
+Now we're ready to turn our Cookoo app into a command line tool:
+
+```go
+	cli.New(reg, router, cxt).Run("hello")
+```
+
+As we saw in the last chapter, `cli.New()` creates a new CLI Runner. A
+runner requires all three parts of a Cookoo app -- the registry, the
+router, and the context.
+
+Finally, whenever `main()` is executed, we want our app to run (`Run()`)
+our new "hello" route.
+
+If we execute the above, this is what we should get:
 
 ```
 $ go run main.go
+Hello World!
 ```
 
-And it will dutifully print some very boilerplate help text.
+(And we still get really lame help with `go run main.go -h`)
 
-Let's take a quick look at why.
-
-## How This Actually Works
-
-Really, there's only one important line in the program above:
-
-```go
-cli.New(cookoo.Cookoo()).Run("help")
-```
-
-Unintuitively, let's start with `cookoo.Cookoo()`. That function is the
-high progenitor of all Cookoo apps. Or, stated less grandiously,
-`cookoo.Cookoo()` creates Cookoo apps.
-
-It returns three things:
-
-- A registry (`*cookoo.Registry`) for you to declare routes.
-- A router (`*cookoo.Router`) for you to execute routes.
-- A context (`cookoo.Context`) for the app to pass data and dependencies
-  around.
-
-Coincidentally (or, well... not coincidentally at all, actually), a new
-Cookoo CLI requires all three of those pieces.
-
-So when we create a new Cookoo CLI with `cli.New()`, we pass it a
-registry, a router, and a context.
-
-`cli.New` creates a new CLI application which can then be run whenever
-we're ready. That's what the `Run()` function does. It takes one
-argument, which is the name of the route to run. We'll look at this in
-detail in the next chapter. For now, we can see that it runs `help`,
-which we can safely (and correctly) assume generates help text.
-
-That's *almost* all there is to say about this program. But there is one
-more thing: When we add `-h` (`go run main.go -h`), it also prints help text.
-Pass in any other flag and it will cause an error.  Why? Because The `-h` is a
-built-in default for Cookoo CLIs. Later, we'll see how to work with
-command line flags.
-
-So there we are. We have the simplest Cookoo app we can build. In the
-next chapter, we'll turn this into *ye olde Hello Worlde* app.
+That's it! We've got our second CLI. In the next chapter, we'll expand
+this into the "Hello You!" app.
