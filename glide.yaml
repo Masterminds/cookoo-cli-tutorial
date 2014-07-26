@@ -1,0 +1,3 @@
+package: github.com/Masterminds/cookoo-cli-tutorial
+import:
+  - package: github.com/Masterminds/cookoo
