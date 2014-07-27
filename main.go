@@ -32,12 +32,14 @@ func main() {
 	helloFlags.String("s", "Hello", "Alternate salutation")
 
 	reg.Route("hello", "A Hello World route").
-		Does(cli.ShiftArgs, "cmd").
-			Using("args").WithDefault("runner.Args").
-			Using("n").WithDefault(1).
+		// Not necessary if "subcommand" is true on ParseArgs.
+		//Does(cli.ShiftArgs, "cmd").
+			//Using("args").WithDefault("runner.Args").
+			//Using("n").WithDefault(1).
 		Does(cli.ParseArgs, "extras").
 			Using("flagset").WithDefault(helloFlags).
 			Using("args").From("cxt:runner.Args").
+			Using("subcommand").WithDefault(true).
 		Does(fmt.Printf, "_").
 			Using("format").WithDefault("%s %s!\n").
 			Using("0").From("cxt:s").
