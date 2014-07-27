@@ -77,6 +77,10 @@ So we have to do this first:
 This says "Shift runner.Args over n=1 places and store the shifted value
 in 'cmd'".
 
+**Note:** In the last chapter avoided this by setting `subcommand` to
+`true` on the `cli.ParseArgs` command. That automatically
+handled argument shifting.
+
 Effectively, that will set "cxt:cmd" to "hello" and "cxt:runner.Args" to
 `[]string{ "-s", "Hi" }`.
 
