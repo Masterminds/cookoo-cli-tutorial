@@ -15,4 +15,4 @@ to see the chapters.
 Each chapter will have the main text in the `README.md` and then the
 rest of the files in the repository are the supporting code.
 
-Go ahead and run [git checkout 1-Simplest-CLI](/Masterminds/cookoo-cli-tutorial/tree/1-Simplest-CLI) to get started!
+Go ahead and run [git checkout 1-Simplest-CLI](https://github.com/Masterminds/cookoo-cli-tutorial/tree/1-Simplest-CLI) to get started!
