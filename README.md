@@ -101,7 +101,7 @@ can use these descriptions to automatically document a program.
 A route *does* stuff. So each `Route()` is followed by any number of
 `Does()` calls. In our app, the *hello* route `Does(fmt.Printf, "_")`.
 
-A `Does()` call takes to arguments: the Cookoo command to run and a name
+A `Does()` call takes two arguments: the Cookoo command to run and a name
 for the output of this command. "_" conventionally means "ignore the output
 of this command. It's not important.")
 
